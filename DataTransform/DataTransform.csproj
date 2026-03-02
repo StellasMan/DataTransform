@@ -18,6 +18,11 @@
 
   <ItemGroup>
     <Compile Remove="CSVSource.cs" />
+    <Compile Remove="DataImport.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="CSVSourceForm.cs~RFece6b59.TMP" />
   </ItemGroup>
 
   <ItemGroup>

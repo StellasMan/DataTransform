@@ -25,7 +25,7 @@ namespace CSVDataSrc
 			get { return DS_TYPE.DST_CSV; }
 		}
 
-		public bool Open(SourceInfo connectionParams)
+		public bool Open(SourceInfo srcInfo)
 		{
 			if (m_strmReader is not null)
 			{
@@ -34,7 +34,20 @@ namespace CSVDataSrc
 			}
 			else
 			{
-				m_strmReader = new StreamReader(m_csvConnectionParams.FilePath);
+				m_strmReader = new StreamReader(srcInfo.FilePath);
+				bool bRetVal = m_strmReader.ReadLine() != null; // Try to read the first line to test the connection
+				if (bRetVal)
+				{
+					m_srcInfo = srcInfo; // Cache the source info if the connection test is successful
+
+					if (m_strmReader.BaseStream.CanSeek) // Check if the stream supports seeking
+					{
+						m_strmReader.BaseStream.Seek(0, SeekOrigin.Begin); // Position to the start
+
+						// Discard the character buffer of the StreamReader
+						m_strmReader.DiscardBufferedData(); // Essential to synchronize the reader with the new stream position
+					}
+				}
 			}
 
 			return true;
@@ -59,12 +72,12 @@ namespace CSVDataSrc
 			try
 			{
 				// Use a 'using' statement to ensure the StreamReader is properly closed
-				using (StreamReader sr = new StreamReader(m_csvConnectionParams.FilePath))
+				using (StreamReader sr = new StreamReader(m_srcInfo.FilePath))
 				{
 					string? line = sr.ReadLine();
 					if (line != null)
 					{
-						DS_OPTIONS dsOptions = m_csvConnectionParams.Options;
+						DS_OPTIONS dsOptions = m_srcInfo.Options;
 						char delimiter = (((dsOptions & DS_OPTIONS.DS_OPT_COMMA_DELIMITED) != 0) ? ',' : '\t');
 						string[] aszColumnNames = line.Split(delimiter);
 						if ((dsOptions & DS_OPTIONS.DS_OPT_HAS_HEADER) != 0)
@@ -92,20 +105,24 @@ namespace CSVDataSrc
 			return lstColumnNames;
 		}
 
-		public bool TestConnection(SourceInfo csvConnectionParams)
+		public bool TestConnection(SourceInfo srcInfo)
 		{
 			bool bRetVal = false;
 
 			// Use a 'using' statement to ensure the StreamReader is properly closed
-			using (StreamReader sr = new StreamReader(csvConnectionParams.FilePath))
+			using (StreamReader sr = new StreamReader(srcInfo.FilePath))
 			{
 				bRetVal = sr.ReadLine() != null; // Try to read the first line to test the connection
+				if (bRetVal)
+				{
+					m_srcInfo = srcInfo; // Cache the source info if the connection test is successful
+				}
 			}
 
 			return bRetVal;
 		}
 
-		public int RecordCount()
+		public int GetRecordCount()
 		{
 			if (m_nRecordCount < 0)
 			{
@@ -114,7 +131,7 @@ namespace CSVDataSrc
 				try
 				{
 					// Use a 'using' statement to ensure the StreamReader is properly closed
-					using (StreamReader sr = new StreamReader(m_csvConnectionParams.FilePath))
+					using (StreamReader sr = new StreamReader(m_srcInfo.FilePath))
 					{
 						string? line;
 						// Read the file line by line until the end (ReadLine returns null)
@@ -131,7 +148,7 @@ namespace CSVDataSrc
 					nRecordCount = -1; // Set record count to 0 if there's an error reading the file
 				}
 
-				bool bHasHeader = (m_csvConnectionParams.Options & DS_OPTIONS.DS_OPT_HAS_HEADER) != 0;
+				bool bHasHeader = (m_srcInfo.Options & DS_OPTIONS.DS_OPT_HAS_HEADER) != 0;
 				m_nRecordCount = (bHasHeader) ? Math.Max(-1, (nRecordCount - 1)) : nRecordCount;
 			}
 
@@ -146,7 +163,7 @@ namespace CSVDataSrc
 			string? line = m_strmReader.ReadLine();
 			if (line != null)
 			{
-				DS_OPTIONS dsOptions = m_csvConnectionParams.Options;
+				DS_OPTIONS dsOptions = m_srcInfo.Options;
 				char delimiter = (((dsOptions & DS_OPTIONS.DS_OPT_COMMA_DELIMITED) != 0) ? ',' : '\t');
 				string[] aszColValues = line.Split(delimiter);
 				if (aszColValues.Length != lstColumnNames.Count)
@@ -167,6 +184,18 @@ namespace CSVDataSrc
 			return bRetVal; // Return true if a record was successfully read, false if there are no more records
 		}
 
+		public SourceInfo? DataSrcInfo 
+		{ 
+			get { return m_srcInfo; }
+			set 
+			{
+				if ((value is not null) && ((m_srcInfo is null) || !value.Equals(m_srcInfo)))
+				{
+					m_srcInfo = value;
+					m_nRecordCount = -1; // Reset record count cache when source info changes
+				}
+			}
+		}
 		// ****** End of IDTDataSource-specific methods *****
 
 
@@ -177,7 +206,7 @@ namespace CSVDataSrc
 		}
 		// ***** End of IDisposable implementation *****
 
-		public SourceInfo m_csvConnectionParams = new SourceInfo();
+		private SourceInfo? m_srcInfo = null;
 		private int m_nRecordCount = -1; // Cache record count after first retrieval
 	}
 }

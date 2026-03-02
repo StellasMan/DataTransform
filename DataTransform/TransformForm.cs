@@ -25,25 +25,25 @@ namespace DataTransform
 			switch (btType)
 			{
 				case BT_TYPE.BT_BACK:
-					bEnabled = true;
+					bEnabled = ((m_tskImport == null) || m_tskImport.IsCompleted);
 					break;
 
 				case BT_TYPE.BT_NEXT:
-					bEnabled = true;
+					bEnabled = false;
 					break;
 			}
 
 			return bEnabled;
 		}
 
-		public PAGE_TYPE GetPageType()
+		public PAGE_TYPE PageType
 		{
-			return PAGE_TYPE.PAGE_TRANSFORM;
+			get { return PAGE_TYPE.PAGE_TRANSFORM; }
 		}
 
-		public bool IsImplemented()
+		public bool IsImplemented
 		{
-			return true;
+			get { return true; }
 		}
 
 		public bool ValidateInput()
@@ -54,7 +54,7 @@ namespace DataTransform
 		public void RefreshUI(WizardForm wizardForm)
 		{
 			bool bTaskInProgress = ((m_tskImport != null) && !m_tskImport.IsCompleted);
-			EnableButtons(wizardForm, bTaskInProgress);
+			EnableButtons(bTaskInProgress);
 
 			txtSource.Text = wizardForm.GetSourceFileName();
 
@@ -67,17 +67,27 @@ namespace DataTransform
 
 			txtTarget.Text = $"{csServer}.{csDatabase}.{csTable}";
 
+			chkClearTable.Checked = true;
+
 			int nRecordCount = wizardForm.GetRecordCount();
 			txtTotal.Text = $"{nRecordCount:n0}";
 			txtRcdsImported.Text = "0";
 			txtErrors.Text = "0";
 
+			if (m_tskImport is not null)
+				m_tskImport.Dispose();
+
+			if (m_cTknSource is not null)
+				m_cTknSource.Dispose();
+
 			m_tskImport = null;
 			m_cTknSource = null;
 		}
 
-		public void EnableButtons(WizardForm wizardForm, bool bTaskInProgress)
+		public void EnableButtons(bool bTaskInProgress)
 		{
+			WizardForm wizardForm = this.Parent.Parent as WizardForm;
+
 			wizardForm.EnableButton(BT_TYPE.BT_BACK, !bTaskInProgress);
 			wizardForm.EnableButton(BT_TYPE.BT_NEXT, false);
 
@@ -100,6 +110,76 @@ namespace DataTransform
 				btnStart.Enabled = !bTaskInProgress;
 				btnStart.Visible = !bTaskInProgress;
 			}
+		}
+
+		private void ProgressUpdate(int nPctComplete, int nRecordsWritten, int nRecordsFailed)
+		{
+			if (txtRcdsImported.InvokeRequired)
+			{
+				txtRcdsImported.Invoke(new Action(() =>
+				{
+					txtRcdsImported.Text = $"{nRecordsWritten:n0}";
+					txtErrors.Text = $"{nRecordsFailed:n0}";
+				}));
+			}
+			else
+			{
+				txtRcdsImported.Text = $"{nRecordsWritten:n0}";
+				txtErrors.Text = $"{nRecordsFailed:n0}";
+			}
+			Debug.WriteLine($"Progress: {nPctComplete}% - Imported: {nRecordsWritten} - Errors: {nRecordsFailed}");
+		}
+
+		private async void OnStart(object sender, EventArgs e)
+		{
+			bool bClearTable = chkClearTable.Checked;
+			bool bOK = true;
+
+			WizardForm wizardForm = this.Parent.Parent as WizardForm;
+
+			if (bClearTable)
+			{
+				int nRecordCount = wizardForm.GetRecordCount();
+				if (nRecordCount > 0)
+				{
+					// public (string csServer, string csDatabase, string csTable) GetTargetInfo()
+					var targetInfo = wizardForm.GetTargetInfo();
+					string csTable = targetInfo.Item3;
+
+					DialogResult result = MessageBox.Show($"Table {csTable} currently has {nRecordCount} records.\nAre you sure you want to clear this table before importing?", "Confirm Clear Table", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+					if (result != DialogResult.Yes)
+					{
+						bOK = false;
+					}
+				}
+			}
+
+			if (bOK)
+			{
+				// Set button states - Only the 'Cancel' button is enabled during import
+				EnableButtons(true);
+
+				// Create a CancellationTokenSource (CTS)
+				m_cTknSource = new CancellationTokenSource();
+				CancellationToken token = m_cTknSource.Token;
+
+				IDTDataSource idtDataSource = wizardForm.GetDataSource();
+				IDTDataTarget idtDataTarget = wizardForm.GetDataTarget();
+
+				DataTransfer dtaXFer = new DataTransfer(idtDataSource, idtDataTarget, token, ProgressUpdate);
+
+				// Start the import, asynchronously so that the UI remains responsive.
+				// Store the Task object so we can check its status later.
+				m_tskImport = Task.Run(() => dtaXFer.Execute());
+				await m_tskImport;
+				EnableButtons(false);
+			}
+		}
+
+		private void OnCancel(object sender, EventArgs e)
+		{
+			// Request cancellation from the main thread
+			m_cTknSource.Cancel();
 		}
 
 		private Task? m_tskImport = null;

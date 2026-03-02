@@ -121,6 +121,28 @@ namespace DataTransform
 			return retVal;
 		}
 
+		public IDTDataSource? GetDataSource()
+		{
+			IDTDataSource? dataSource = null;
+			IWizardPanelSource isrcForm = wizardPages[(int)FT_INDEX.FT_SOURCE] as IWizardPanelSource;
+			if (isrcForm != null)
+			{
+				dataSource = isrcForm.DataSource;
+			}
+			return dataSource;
+		}
+
+		public IDTDataTarget? GetDataTarget()
+		{
+			IDTDataTarget? dataTarget = null;
+			IWizardPanelTarget idtPanelTarget = wizardPages[(int)FT_INDEX.FT_DEST] as IWizardPanelTarget;
+			if (idtPanelTarget != null)
+			{
+				dataTarget = idtPanelTarget.GetDataTarget();
+			}
+			return dataTarget;
+		}
+
 		private void LoadCurrentPage()
 		{
 			// Clear existing page and add the new one
@@ -167,7 +189,7 @@ namespace DataTransform
 							IWizardPanelSource? idtPanelSrc = newControl as IWizardPanelSource;
 							if (idtPanelSrc != null)
 							{
-								IDTDataSource? idtDataSrc = idtPanelSrc.GetDataSource();
+								IDTDataSource? idtDataSrc = idtPanelSrc.DataSource;
 								if (idtDataSrc != null)
 								{
 									m_lstColumnNames = idtDataSrc.GetColumnNames();
@@ -221,7 +243,7 @@ namespace DataTransform
 						IWizardPanelSource? dtPanelSrc = newControl as IWizardPanelSource;
 						if (dtPanelSrc != null)
 						{
-							IDTDataSource? idtDataSource = dtPanelSrc.GetDataSource();
+							IDTDataSource? idtDataSource = dtPanelSrc.DataSource;
 							if (idtDataSource != null)
 							{
 								m_lstColumnNames = idtDataSource.GetColumnNames();

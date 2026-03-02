@@ -27,29 +27,14 @@ namespace DataTransform
 			chkHasHeader.Checked = true; // Set default to indicate the first row has column names
 			radCommaDelimited.Checked = true; // Set default selection
 
-			SourceInfo csvConnectionParams = new SourceInfo(string.Empty, DS_OPTIONS.DS_OPT_HAS_HEADER | DS_OPTIONS.DS_OPT_COMMA_DELIMITED);
+			SourceInfo srcInfo = new SourceInfo(string.Empty, DS_OPTIONS.DS_OPT_HAS_HEADER | DS_OPTIONS.DS_OPT_COMMA_DELIMITED);
 
 			#if DEBUG
-				string csCSVFileName = "D:\\Development\\Projects\\DataTransform\\DataTransform\\Data\\CrossRef.csv";
+				string csCSVFileName = "D:\\Development\\Projects\\DataTransform\\Data\\CrossRef.csv";
 				txtCSVFileName.Text = csCSVFileName;
-				csvConnectionParams.FilePath = csCSVFileName;
-				InitSourceFile(csvConnectionParams);
+				srcInfo.FilePath = csCSVFileName;
+				InitSourceFile(srcInfo);
 			#endif
-		}
-
-		public IDTDataSource? GetDataSource()
-		{
-			IDTDataSource? dataSource = null;
-			if (m_csvSource.m_csvConnectionParams is not null)
-			{
-				dataSource = m_csvSource;
-			}
-			return dataSource;
-		}
-
-		public IDTDataTarget? GetDataTarget()
-		{
-			return null; // This form is only for source configuration, so it does not provide a data target
 		}
 
 		public bool IsButtonEnabled(BT_TYPE btType)
@@ -69,24 +54,14 @@ namespace DataTransform
 			return bEnabled;
 		}
 
-		public PAGE_TYPE GetPageType()
-		{
-			return PAGE_TYPE.PAGE_SOURCE;
-		}
-
-		public bool IsImplemented()
-		{
-			return true;
-		}
-
 		public bool ValidateInput()
 		{
 			DS_OPTIONS dsOptions = DS_OPTIONS.DS_OPT_NONE;
 			dsOptions |= radCommaDelimited.Checked ? DS_OPTIONS.DS_OPT_COMMA_DELIMITED : DS_OPTIONS.DS_OPT_NONE;
 			dsOptions |= chkHasHeader.Checked ? DS_OPTIONS.DS_OPT_HAS_HEADER : DS_OPTIONS.DS_OPT_NONE;
 
-			SourceInfo csvConnectionParams = new SourceInfo(txtCSVFileName.Text, dsOptions);
-			return m_csvSource.TestConnection(csvConnectionParams);
+			SourceInfo srcInfo = new SourceInfo(txtCSVFileName.Text, dsOptions);
+			return m_csvSource.TestConnection(srcInfo);
 		}
 
 		public void RefreshUI(WizardForm wizardForm)
@@ -133,22 +108,22 @@ namespace DataTransform
 		}
 
 		// Initialize the source file
-		private bool InitSourceFile(SourceInfo csvConnectionParams)
+		private bool InitSourceFile(SourceInfo srcInfo)
 		{
 			bool bError = false;
 			m_nRecordCount = 0;
 
-			bool areEqual = ((m_csvSource.m_csvConnectionParams is not null) && m_csvSource.m_csvConnectionParams.Equals(csvConnectionParams));
+			bool areEqual = ((m_csvSource.DataSrcInfo is not null) && m_csvSource.DataSrcInfo.Equals(srcInfo));
 			if (!areEqual)
 			{
 				try
 				{
-					if (m_csvSource.TestConnection(csvConnectionParams))
+					if (m_csvSource.TestConnection(srcInfo))
 					{
-						m_csvSource.m_csvConnectionParams = csvConnectionParams;
+						m_csvSource.DataSrcInfo = srcInfo;
 
 						Trace.WriteLine("Connection test successful.");
-						m_nRecordCount = m_csvSource.RecordCount();
+						m_nRecordCount = m_csvSource.GetRecordCount();
 					}
 					else
 					{
@@ -168,7 +143,7 @@ namespace DataTransform
 					txtRcdCount.Text = m_nRecordCount.ToString("N0");
 
 					#if DEBUG
-						Trace.WriteLine($"Total # of records for file {m_csvSource.m_csvConnectionParams.FilePath}: {m_nRecordCount:n0}");
+						Trace.WriteLine($"Total # of records for file {m_csvSource.DataSrcInfo.FilePath}: {m_nRecordCount:n0}");
 					#endif
 				}
 			}
@@ -176,9 +151,24 @@ namespace DataTransform
 			return !bError;
 		}
 
+		public IDTDataSource? DataSource
+		{
+			get { return m_csvSource; }
+		}
+
+		public PAGE_TYPE PageType
+		{
+			get { return PAGE_TYPE.PAGE_SOURCE; }
+		}
+
+		public bool IsImplemented
+		{
+			get { return true; }
+		}
+
 		public string SourceFile 
 		{ 
-			get { return m_csvSource.m_csvConnectionParams?.FilePath ?? string.Empty; }
+			get { return m_csvSource.DataSrcInfo?.FilePath ?? string.Empty; }
 		}
 
 		public int RecordCount 
@@ -186,9 +176,8 @@ namespace DataTransform
 			get { return m_nRecordCount; }
 		}
 
-		CSVDTDataSource m_csvSource = new CSVDTDataSource();
+		private CSVDTDataSource m_csvSource = new CSVDTDataSource();
 		private List<string> m_lstColumnNames = new List<string>();
-
 		private int m_nRecordCount = 0;
 	}
 }

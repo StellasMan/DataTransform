@@ -252,14 +252,14 @@ namespace DataTransform
 			return bEnabled;
 		}
 
-		public PAGE_TYPE GetPageType()
+		public PAGE_TYPE PageType
 		{
-			return PAGE_TYPE.PAGE_DEST;
+			get { return PAGE_TYPE.PAGE_DEST; }
 		}
 
-		public bool IsImplemented()
+		public bool IsImplemented
 		{
-			return true;
+			get { return true; }
 		}
 
 		public bool ValidateInput()

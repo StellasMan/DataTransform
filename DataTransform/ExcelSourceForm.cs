@@ -29,21 +29,21 @@ namespace DataTransform
 					break;
 
 				case BT_TYPE.BT_NEXT:
-					bEnabled = IsImplemented();
+					bEnabled = IsImplemented;
 					break;
 			}
 
 			return bEnabled;
 		}
 
-		public PAGE_TYPE GetPageType()
+		public PAGE_TYPE PageType
 		{
-			return PAGE_TYPE.PAGE_SOURCE;
+			get { return PAGE_TYPE.PAGE_SOURCE; }
 		}
 
-		public bool IsImplemented()
+		public bool IsImplemented
 		{
-			return false;
+			get { return false; }
 		}
 
 		public bool ValidateInput()
@@ -56,9 +56,9 @@ namespace DataTransform
 			Trace.WriteLine("SourceForm: RefreshUI called");
 		}
 
-		public IDTDataSource? GetDataSource()
+		public IDTDataSource? DataSource
 		{
-			return null;
+			get { return null; }
 		}
 
 		public string SourceFile

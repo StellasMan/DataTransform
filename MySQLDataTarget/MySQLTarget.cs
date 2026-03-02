@@ -44,11 +44,7 @@ namespace MySQLDataTarget
 	{
 		public MySQLFieldInfo(string name, string type, bool bAllowsNulls, KeyType keyType, string defaultValue)
 		{
-			Name = name;
-			Type = type;
-			AllowsNulls = bAllowsNulls;
-			KeyType = keyType;
-			DefaultValue = defaultValue;
+			(Name, Type, AllowsNulls, KeyType, DefaultValue) = (name, type, bAllowsNulls, keyType, defaultValue);
 		}
 
 		public string Name { get; set; }

@@ -35,14 +35,14 @@ namespace DataTransform
 			return bEnabled;
 		}
 
-		public PAGE_TYPE GetPageType()
+		public PAGE_TYPE PageType
 		{
-			return PAGE_TYPE.PAGE_SUMMARY;
+			get { return PAGE_TYPE.PAGE_SUMMARY; }
 		}
 
-		public bool IsImplemented()
+		public bool IsImplemented
 		{
-			return true;
+			get { return true; }
 		}
 
 		public bool ValidateInput()

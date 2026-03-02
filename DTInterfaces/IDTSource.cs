@@ -22,7 +22,6 @@
 		public SourceInfo() : this(string.Empty, DS_OPTIONS.DS_OPT_NONE) { }
 		public SourceInfo(string filePath, DS_OPTIONS dsOptions) => (m_filePath, m_dsOptions) = (filePath, dsOptions);
 
-
 		public string FilePath
 		{
 			get { return m_filePath; }
@@ -102,11 +101,13 @@
 		DS_TYPE DataSourceType { get; }
 
 		List<string> GetColumnNames();
-		bool TestConnection(SourceInfo connectionParams);
-		int RecordCount();
+		bool TestConnection(SourceInfo srcInfo);
+		int GetRecordCount();
 
-		bool Open(SourceInfo connectionParams);
+		bool Open(SourceInfo srcInfo);
 		bool Close();
 		bool GetNextRecord(List<string> lstColumnNames, out Dictionary<string, string> dctDataCols);
+
+		SourceInfo? DataSrcInfo { get; set; }
 	}
 }

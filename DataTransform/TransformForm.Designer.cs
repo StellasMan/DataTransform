@@ -47,7 +47,7 @@
 			// 
 			// txtTarget
 			// 
-			txtTarget.Location = new Point(226, 86);
+			txtTarget.Location = new Point(216, 86);
 			txtTarget.Name = "txtTarget";
 			txtTarget.ReadOnly = true;
 			txtTarget.Size = new Size(240, 23);
@@ -56,7 +56,7 @@
 			// label2
 			// 
 			label2.AutoSize = true;
-			label2.Location = new Point(134, 90);
+			label2.Location = new Point(124, 90);
 			label2.Name = "label2";
 			label2.Size = new Size(74, 15);
 			label2.TabIndex = 2;
@@ -65,7 +65,7 @@
 			// label1
 			// 
 			label1.AutoSize = true;
-			label1.Location = new Point(141, 40);
+			label1.Location = new Point(131, 40);
 			label1.Name = "label1";
 			label1.Size = new Size(67, 15);
 			label1.TabIndex = 0;
@@ -73,7 +73,7 @@
 			// 
 			// txtSource
 			// 
-			txtSource.Location = new Point(226, 36);
+			txtSource.Location = new Point(216, 36);
 			txtSource.Name = "txtSource";
 			txtSource.ReadOnly = true;
 			txtSource.Size = new Size(470, 23);
@@ -82,7 +82,7 @@
 			// chkClearTable
 			// 
 			chkClearTable.AutoSize = true;
-			chkClearTable.Location = new Point(484, 88);
+			chkClearTable.Location = new Point(474, 88);
 			chkClearTable.Name = "chkClearTable";
 			chkClearTable.Size = new Size(160, 19);
 			chkClearTable.TabIndex = 4;
@@ -148,7 +148,7 @@
 			grpProgress.Controls.Add(label5);
 			grpProgress.Controls.Add(label4);
 			grpProgress.Controls.Add(txtRcdsImported);
-			grpProgress.Location = new Point(134, 139);
+			grpProgress.Location = new Point(124, 139);
 			grpProgress.Name = "grpProgress";
 			grpProgress.Size = new Size(562, 147);
 			grpProgress.TabIndex = 11;
@@ -157,21 +157,23 @@
 			// 
 			// btnStart
 			// 
-			btnStart.Location = new Point(307, 318);
+			btnStart.Location = new Point(354, 318);
 			btnStart.Name = "btnStart";
 			btnStart.Size = new Size(103, 23);
 			btnStart.TabIndex = 12;
 			btnStart.Text = "&Start Import";
 			btnStart.UseVisualStyleBackColor = true;
+			btnStart.Click += OnStart;
 			// 
 			// btnCancel
 			// 
-			btnCancel.Location = new Point(416, 318);
+			btnCancel.Location = new Point(354, 318);
 			btnCancel.Name = "btnCancel";
 			btnCancel.Size = new Size(103, 23);
 			btnCancel.TabIndex = 13;
 			btnCancel.Text = "&Cancel Import";
 			btnCancel.UseVisualStyleBackColor = true;
+			btnCancel.Click += OnCancel;
 			// 
 			// TransformForm
 			// 

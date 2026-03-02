@@ -25,7 +25,7 @@ namespace DataTransform
 
 	internal interface IWizardPanelSource : IWizardPanel
 	{
-		IDTDataSource? GetDataSource();
+		IDTDataSource? DataSource { get; }
 		string SourceFile { get; }
 		int RecordCount { get; }
 	}
@@ -40,8 +40,8 @@ namespace DataTransform
 	{
 		void RefreshUI(WizardForm wizardForm);
 		bool IsButtonEnabled(BT_TYPE btType);
-		PAGE_TYPE GetPageType();
-		bool IsImplemented();
+		PAGE_TYPE PageType { get; }
+		bool IsImplemented { get; }
 		bool ValidateInput();
 	}
 }
