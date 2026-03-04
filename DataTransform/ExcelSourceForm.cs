@@ -66,7 +66,7 @@ namespace DataTransform
 			get { return string.Empty; }
 		}
 
-		public int RecordCount
+		public uint RecordCount
 		{
 			get { return 0; }
 		}

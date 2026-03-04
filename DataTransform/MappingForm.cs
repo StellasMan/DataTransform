@@ -40,11 +40,11 @@ namespace DataTransform
 			lstViewColumns.Items.Clear();
 
 			// Get a list of all the mapped target fields so we can exclude them from the list of available fields
-			List<string> lstFields = wizardForm.m_mapColToField.Values.ToList();
+			List<string> lstFields = m_mapColToField.Values.ToList();
 
 			foreach (string csColName in wizardForm.m_lstColumnNames)
 			{
-				if (!wizardForm.m_mapColToField.TryGetValue(csColName, out string csFieldName))
+				if (!m_mapColToField.TryGetValue(csColName, out string csFieldName))
 				{
 					// Column is not mapped, so add it to the list of available columns
 					ListViewItem item = new ListViewItem(csColName);
@@ -74,13 +74,15 @@ namespace DataTransform
 			lstViewMapped.Items.Clear();
 			foreach (string csColName in wizardForm.m_lstColumnNames)
 			{
-				if (wizardForm.m_mapColToField.TryGetValue(csColName, out string csFieldName))
+				if (m_mapColToField.TryGetValue(csColName, out string csFieldName))
 				{
 					ListViewItem item = new ListViewItem(csColName);
 					item.SubItems.Add(csFieldName);
 					lstViewMapped.Items.Add(item);
 				}
 			}
+
+			EnableMappingButtons();
 		}
 
 		public void EnableMappingButtons()
@@ -94,14 +96,14 @@ namespace DataTransform
 		{
 			foreach (string csColName in wizardForm.m_lstColumnNames)
 			{
-				if (!wizardForm.m_mapColToField.TryGetValue(csColName, out string csFieldName))
+				if (!m_mapColToField.TryGetValue(csColName, out string csFieldName))
 				{
 					// Column is not mapped, so check if there is a field with the same name (case-insensitive)
 					string csMatchingField = wizardForm.m_mapColToFieldInfo.Keys.FirstOrDefault(f => string.Equals(f, csColName, StringComparison.OrdinalIgnoreCase));
 					if (!string.IsNullOrEmpty(csMatchingField))
 					{
 						// Found a matching field, so create the mapping
-						wizardForm.m_mapColToField[csColName] = csMatchingField;
+						m_mapColToField[csColName] = csMatchingField;
 
 						// Update the display to show the mapping
 						ListViewItem item = new ListViewItem(csColName);
@@ -118,7 +120,7 @@ namespace DataTransform
 		private bool IsFieldMapped(string csFieldName)
 		{
 			WizardForm wizardForm = this.Parent.Parent as WizardForm;
-			return wizardForm.m_mapColToField.Values.Contains(csFieldName);
+			return m_mapColToField.Values.Contains(csFieldName);
 		}
 
 		private bool ValidateField(MySQLFieldInfo mySQLFieldInfo, out string csError)
@@ -186,7 +188,7 @@ namespace DataTransform
 				string csColName = lstViewColumns.SelectedItems[0].SubItems[0].Text;
 				string csFieldName = lstViewFields.SelectedItems[0].SubItems[0].Text;
 				WizardForm wizardForm = this.Parent.Parent as WizardForm;
-				wizardForm.m_mapColToField[csColName] = csFieldName;
+				m_mapColToField[csColName] = csFieldName;
 
 				// Remove the mapped column and field from the available lists
 				lstViewColumns.Items.Remove(lstViewColumns.SelectedItems[0]);
@@ -214,7 +216,7 @@ namespace DataTransform
 
 					// Remove the mapping from the wizard form's mapping dictionary
 					WizardForm wizardForm = this.Parent.Parent as WizardForm;
-					wizardForm.m_mapColToField.Remove(csColName);
+					m_mapColToField.Remove(csColName);
 
 					// Add the column and field back to the available lists
 					ListViewItem item = new ListViewItem(csColName);
@@ -266,5 +268,13 @@ namespace DataTransform
 		{
 			return true;
 		}
+
+		public Dictionary<string, string> FieldMapping
+		{
+			get { return m_mapColToField; }
+		}
+
+		// Mapping information
+		public Dictionary<string, string> m_mapColToField = new Dictionary<string, string>();   // Maps source column name to target field name
 	}
 }

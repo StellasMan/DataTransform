@@ -95,19 +95,17 @@
 		// ************** End of IEquatable<T> implementation **************
 	}
 
-	public interface IDTDataSource : IDisposable
+	public delegate void DTSrcRecordDelegate(Dictionary<string, string> dctDataCols, bool bError);
+
+	public interface IDTDataSource
 	{
+		bool Initialize(SourceInfo srcInfo);
+		bool EnumerateRecords(Dictionary<string, string> dctFieldMapping, DTSrcRecordDelegate dctDelegate);
+
 		string Name { get; }
+		List<string> ColumnNames { get; }
+		uint RecordCount { get; }
 		DS_TYPE DataSourceType { get; }
-
-		List<string> GetColumnNames();
-		bool TestConnection(SourceInfo srcInfo);
-		int GetRecordCount();
-
-		bool Open(SourceInfo srcInfo);
-		bool Close();
-		bool GetNextRecord(List<string> lstColumnNames, out Dictionary<string, string> dctDataCols);
-
 		SourceInfo? DataSrcInfo { get; set; }
 	}
 }

@@ -27,7 +27,7 @@ namespace DataTransform
 	{
 		IDTDataSource? DataSource { get; }
 		string SourceFile { get; }
-		int RecordCount { get; }
+		uint RecordCount { get; }
 	}
 
 	internal interface IWizardPanelTarget : IWizardPanel

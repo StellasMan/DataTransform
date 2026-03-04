@@ -69,8 +69,8 @@ namespace DataTransform
 
 			chkClearTable.Checked = true;
 
-			int nRecordCount = wizardForm.GetRecordCount();
-			txtTotal.Text = $"{nRecordCount:n0}";
+			uint uiRecordCount = wizardForm.GetRecordCount();
+			txtTotal.Text = $"{uiRecordCount:n0}";
 			txtRcdsImported.Text = "0";
 			txtErrors.Text = "0";
 
@@ -139,14 +139,14 @@ namespace DataTransform
 
 			if (bClearTable)
 			{
-				int nRecordCount = wizardForm.GetRecordCount();
-				if (nRecordCount > 0)
+				uint uiRecordCount = wizardForm.GetRecordCount();
+				if (uiRecordCount > 0)
 				{
 					// public (string csServer, string csDatabase, string csTable) GetTargetInfo()
 					var targetInfo = wizardForm.GetTargetInfo();
 					string csTable = targetInfo.Item3;
 
-					DialogResult result = MessageBox.Show($"Table {csTable} currently has {nRecordCount} records.\nAre you sure you want to clear this table before importing?", "Confirm Clear Table", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+					DialogResult result = MessageBox.Show($"Table {csTable} currently has {uiRecordCount} records.\nAre you sure you want to clear this table before importing?", "Confirm Clear Table", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
 					if (result != DialogResult.Yes)
 					{
 						bOK = false;
@@ -165,8 +165,8 @@ namespace DataTransform
 
 				IDTDataSource idtDataSource = wizardForm.GetDataSource();
 				IDTDataTarget idtDataTarget = wizardForm.GetDataTarget();
-
-				DataTransfer dtaXFer = new DataTransfer(idtDataSource, idtDataTarget, token, ProgressUpdate);
+				Dictionary<string, string> dctFieldMapping = wizardForm.GetFieldMapping();
+				DataTransfer dtaXFer = new DataTransfer(idtDataSource, idtDataTarget, dctFieldMapping, token, ProgressUpdate);
 
 				// Start the import, asynchronously so that the UI remains responsive.
 				// Store the Task object so we can check its status later.

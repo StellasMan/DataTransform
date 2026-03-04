@@ -28,9 +28,6 @@ namespace DataTransform
 
 		public bool m_bAutoMapEnabled = true;
 
-		// Mapping information
-		public Dictionary<string, string> m_mapColToField = new Dictionary<string, string>();   // Maps source column name to target field name
-
 		public List<string> m_lstColumnNames = new List<string>();
 
 		// TODO: Make this more generic to support different types of data targets, not just MySQL
@@ -87,16 +84,16 @@ namespace DataTransform
 			return csFileName;
 		}
 
-		public int GetRecordCount()
+		public uint GetRecordCount()
 		{
-			int nRecordCount = 0;
+			uint uiRecordCount = 0;
 			IWizardPanelSource isrcForm = wizardPages[(int)FT_INDEX.FT_SOURCE] as IWizardPanelSource;
 			if (isrcForm != null)
 			{
-				nRecordCount = isrcForm.RecordCount;
+				uiRecordCount = isrcForm.RecordCount;
 			}
 
-			return nRecordCount;
+			return uiRecordCount;
 		}
 
 		public (string csServer, string csDatabase, string csTable) GetTargetInfo()
@@ -141,6 +138,17 @@ namespace DataTransform
 				dataTarget = idtPanelTarget.GetDataTarget();
 			}
 			return dataTarget;
+		}
+
+		public Dictionary<string, string> GetFieldMapping()
+		{
+			Dictionary<string, string> mapFieldMapping = new Dictionary<string, string>();
+			MappingForm mappingForm = wizardPages[(int)FT_INDEX.FT_MAPPING] as MappingForm;
+			if (mappingForm != null)
+			{
+				mapFieldMapping = mappingForm.FieldMapping;
+			}
+			return mapFieldMapping;
 		}
 
 		private void LoadCurrentPage()
@@ -192,7 +200,7 @@ namespace DataTransform
 								IDTDataSource? idtDataSrc = idtPanelSrc.DataSource;
 								if (idtDataSrc != null)
 								{
-									m_lstColumnNames = idtDataSrc.GetColumnNames();
+									m_lstColumnNames = idtDataSrc.ColumnNames;
 								}
 							}
 						}
@@ -246,7 +254,7 @@ namespace DataTransform
 							IDTDataSource? idtDataSource = dtPanelSrc.DataSource;
 							if (idtDataSource != null)
 							{
-								m_lstColumnNames = idtDataSource.GetColumnNames();
+								m_lstColumnNames = idtDataSource.ColumnNames;
 							}
 						}
 					}

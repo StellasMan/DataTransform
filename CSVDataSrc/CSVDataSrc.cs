@@ -2,131 +2,84 @@
 using DTInterfaces;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
+using CsvHelper;
+
 namespace CSVDataSrc
 {
 	public class CSVDTDataSource : IDTDataSource
 	{
-		private StreamReader? m_strmReader;
-
 		public CSVDTDataSource() { }
 		~CSVDTDataSource()
 		{
-			Dispose();
-		}
-
-		// ********* IDTDataSource implementation *********
-		public string Name // public property
-		{
-			get { return "CSV Data Source"; }
-		}
-
-		public DS_TYPE DataSourceType
-		{
-			get { return DS_TYPE.DST_CSV; }
-		}
-
-		public bool Open(SourceInfo srcInfo)
-		{
-			if (m_strmReader is not null)
-			{
-				m_strmReader.Close();
-				m_strmReader.Dispose();
-			}
-			else
-			{
-				m_strmReader = new StreamReader(srcInfo.FilePath);
-				bool bRetVal = m_strmReader.ReadLine() != null; // Try to read the first line to test the connection
-				if (bRetVal)
-				{
-					m_srcInfo = srcInfo; // Cache the source info if the connection test is successful
-
-					if (m_strmReader.BaseStream.CanSeek) // Check if the stream supports seeking
-					{
-						m_strmReader.BaseStream.Seek(0, SeekOrigin.Begin); // Position to the start
-
-						// Discard the character buffer of the StreamReader
-						m_strmReader.DiscardBufferedData(); // Essential to synchronize the reader with the new stream position
-					}
-				}
-			}
-
-			return true;
-		}
-
-		public bool Close()
-		{
-			if (m_strmReader is not null)
-			{
-				m_strmReader.Close();
-				m_strmReader.Dispose();
-			}
-
-			return true;
 		}
 
 		// ****** IDataSource-specific methods *****
-		public List<string> GetColumnNames()
-		{
-			List<string> lstColumnNames = new List<string>();
 
-			try
+		public bool Initialize(SourceInfo srcInfo)
+		{
+			bool bRetVal = true;
+			if (!m_bInitialized || (m_srcInfo is null) || (m_srcInfo != srcInfo))
 			{
-				// Use a 'using' statement to ensure the StreamReader is properly closed
-				using (StreamReader sr = new StreamReader(m_srcInfo.FilePath))
+				bRetVal = false;
+				m_lstColumnNames.Clear();
+				try
 				{
-					string? line = sr.ReadLine();
-					if (line != null)
+					using (var reader = new StreamReader(srcInfo.FilePath))
 					{
-						DS_OPTIONS dsOptions = m_srcInfo.Options;
-						char delimiter = (((dsOptions & DS_OPTIONS.DS_OPT_COMMA_DELIMITED) != 0) ? ',' : '\t');
-						string[] aszColumnNames = line.Split(delimiter);
-						if ((dsOptions & DS_OPTIONS.DS_OPT_HAS_HEADER) != 0)
+						using (var csv = new CsvReader(reader, System.Globalization.CultureInfo.InvariantCulture))
 						{
-							lstColumnNames.AddRange(aszColumnNames);
-						}
-						else
-						{
-							// If there's no header, generate generic column names
-							// based on the number of columns in the first line
-							for (int i = 0; i < aszColumnNames.Length; i++)
+							if (csv.Read())
 							{
-								lstColumnNames.Add($"Column{i + 1}");
+								if (srcInfo.Options.HasFlag(DS_OPTIONS.DS_OPT_HAS_HEADER))
+								{
+									if (csv.ReadHeader())
+									{
+										foreach (string item in csv.HeaderRecord)
+										{
+											m_lstColumnNames.Add(item);
+										}
+
+										bRetVal = true;
+									}
+								}
+								else
+								{
+									for (int i = 1; i <= csv.Parser.Count; i++)
+									{
+										m_lstColumnNames.Add($"Col{i}");
+									}
+
+									bRetVal = true;
+								}
+							}
+							else
+							{
+								Trace.WriteLine("The file is empty.");
 							}
 						}
 					}
 				}
-			}
-			catch (Exception ex)
-			{
-				Console.WriteLine($"The file could not be read:");
-				Console.WriteLine(ex.Message);
-			}
+				catch (Exception ex)
+				{
+					Trace.WriteLine($"The file could not be read:");
+					Trace.WriteLine(ex.Message);
+				}
 
-			return lstColumnNames;
-		}
-
-		public bool TestConnection(SourceInfo srcInfo)
-		{
-			bool bRetVal = false;
-
-			// Use a 'using' statement to ensure the StreamReader is properly closed
-			using (StreamReader sr = new StreamReader(srcInfo.FilePath))
-			{
-				bRetVal = sr.ReadLine() != null; // Try to read the first line to test the connection
 				if (bRetVal)
 				{
-					m_srcInfo = srcInfo; // Cache the source info if the connection test is successful
+					m_srcInfo = srcInfo;
+					GetRecordCount(); // Cache the record count after successful initialization
 				}
 			}
 
 			return bRetVal;
 		}
 
-		public int GetRecordCount()
+		private uint GetRecordCount()
 		{
-			if (m_nRecordCount < 0)
+			if (!m_bInitialized)
 			{
-				int nRecordCount = 0;
+				uint uiRecordCount = 0;
 
 				try
 				{
@@ -137,51 +90,80 @@ namespace CSVDataSrc
 						// Read the file line by line until the end (ReadLine returns null)
 						while ((line = sr.ReadLine()) != null)
 						{
-							nRecordCount++;
+							uiRecordCount++;
 						}
+
+						m_bInitialized = true; // Set the flag to indicate that we've initialized the record count
+						bool bHasHeader = m_srcInfo.Options.HasFlag(DS_OPTIONS.DS_OPT_HAS_HEADER);
+						m_uiRecordCount = (bHasHeader) ? Math.Max(0, (uiRecordCount - 1)) : uiRecordCount;
 					}
 				}
 				catch (Exception ex)
 				{
 					Trace.WriteLine($"The file could not be read:");
 					Trace.WriteLine(ex.Message);
-					nRecordCount = -1; // Set record count to 0 if there's an error reading the file
+					m_uiRecordCount = 0; // Set record count to 0 if there's an error reading the file
 				}
-
-				bool bHasHeader = (m_srcInfo.Options & DS_OPTIONS.DS_OPT_HAS_HEADER) != 0;
-				m_nRecordCount = (bHasHeader) ? Math.Max(-1, (nRecordCount - 1)) : nRecordCount;
 			}
 
-			return m_nRecordCount;
+			return m_uiRecordCount;
 		}
 
-		public bool GetNextRecord(List<string> lstColumnNames, out Dictionary<string, string> dctDataCols)
+		public bool EnumerateRecords(Dictionary<string, string> dctFieldMapping, DTSrcRecordDelegate dctDelegate)
 		{
-			bool bRetVal = false;
-			dctDataCols = new Dictionary<string, string>();
-
-			string? line = m_strmReader.ReadLine();
-			if (line != null)
+			bool bRetVal = true;
+			try
 			{
-				DS_OPTIONS dsOptions = m_srcInfo.Options;
-				char delimiter = (((dsOptions & DS_OPTIONS.DS_OPT_COMMA_DELIMITED) != 0) ? ',' : '\t');
-				string[] aszColValues = line.Split(delimiter);
-				if (aszColValues.Length != lstColumnNames.Count)
+				using (var reader = new StreamReader(m_srcInfo.FilePath))
 				{
-					Trace.WriteLine($"Warning: Number of columns in the record ({aszColValues.Length}) does not match the number of column names ({lstColumnNames.Count}).");
-				}
-				else
-				{
-					for (int i = 0; i < lstColumnNames.Count; i++)
+					using (var csv = new CsvReader(reader, System.Globalization.CultureInfo.InvariantCulture))
 					{
-						dctDataCols[lstColumnNames[i]] = aszColValues[i];
-					}
+						//var records = new List<string>();
+						Dictionary<string, string> dctDataCols = new Dictionary<string, string>();
+						csv.Read();
+						csv.ReadHeader();
+						while (csv.Read())
+						{
+							dctDataCols.Clear();
 
-					bRetVal = true;
+							if (csv.Parser.Record == null)
+							{
+								Trace.WriteLine("Warning: Reached end of file or encountered an empty line.");
+								continue; // Skip to the next iteration if there's no record
+							}
+
+							string[] aszColValues = csv.Parser.Record;
+							if (aszColValues.Length != m_lstColumnNames.Count)
+							{
+								string csError = $"Warning: Number of columns in the record ({aszColValues.Length}) does not match the number of column names ({m_lstColumnNames.Count}).";
+								Trace.WriteLine(csError);
+								dctDelegate(dctDataCols, true); // Pass an empty dictionary and indicate an error
+							}
+							else
+							{
+								// public delegate void DTSrcRecordDelegate(Dictionary<string, string> dctDataCols, bool bError);
+								for (int i = 0; i < m_lstColumnNames.Count; i++)
+								{
+									if (dctFieldMapping.TryGetValue(m_lstColumnNames[i], out string mappedField))
+									{
+										dctDataCols[mappedField] = aszColValues[i];
+									}
+								}
+
+								dctDelegate(dctDataCols, false);
+							}
+						}
+					}
 				}
 			}
+			catch (Exception ex)
+			{
+				Trace.WriteLine($"The file could not be read:");
+				Trace.WriteLine(ex.Message);
+				bRetVal = false;
+			}
 
-			return bRetVal; // Return true if a record was successfully read, false if there are no more records
+			return bRetVal;
 		}
 
 		public SourceInfo? DataSrcInfo 
@@ -192,21 +174,37 @@ namespace CSVDataSrc
 				if ((value is not null) && ((m_srcInfo is null) || !value.Equals(m_srcInfo)))
 				{
 					m_srcInfo = value;
-					m_nRecordCount = -1; // Reset record count cache when source info changes
+					m_uiRecordCount = 0; // Reset record count cache when source info changes
 				}
 			}
 		}
+
+		public string Name // public property
+		{
+			get { return "CSV Data Source"; }
+		}
+
+		public List<string> ColumnNames
+		{
+			get { return m_lstColumnNames; }
+		}
+
+		public DS_TYPE DataSourceType
+		{
+			get { return DS_TYPE.DST_CSV; }
+		}
+
+		public uint RecordCount
+		{
+			get { return m_uiRecordCount; }
+		}
+
 		// ****** End of IDTDataSource-specific methods *****
 
 
-		// ***** IDisposable implementation *****
-		public void Dispose()
-		{
-			Close();
-		}
-		// ***** End of IDisposable implementation *****
-
+		private List<string> m_lstColumnNames = new List<string>();
 		private SourceInfo? m_srcInfo = null;
-		private int m_nRecordCount = -1; // Cache record count after first retrieval
+		private uint m_uiRecordCount = 0;
+		private bool m_bInitialized = false;
 	}
 }

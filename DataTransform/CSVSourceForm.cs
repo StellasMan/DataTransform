@@ -30,7 +30,9 @@ namespace DataTransform
 			SourceInfo srcInfo = new SourceInfo(string.Empty, DS_OPTIONS.DS_OPT_HAS_HEADER | DS_OPTIONS.DS_OPT_COMMA_DELIMITED);
 
 			#if DEBUG
+				chkHasHeader.Checked = false;
 				string csCSVFileName = "D:\\Development\\Projects\\DataTransform\\Data\\CrossRef.csv";
+				srcInfo.Options = DS_OPTIONS.DS_OPT_COMMA_DELIMITED;
 				txtCSVFileName.Text = csCSVFileName;
 				srcInfo.FilePath = csCSVFileName;
 				InitSourceFile(srcInfo);
@@ -61,7 +63,7 @@ namespace DataTransform
 			dsOptions |= chkHasHeader.Checked ? DS_OPTIONS.DS_OPT_HAS_HEADER : DS_OPTIONS.DS_OPT_NONE;
 
 			SourceInfo srcInfo = new SourceInfo(txtCSVFileName.Text, dsOptions);
-			return m_csvSource.TestConnection(srcInfo);
+			return m_csvSource.Initialize(srcInfo);
 		}
 
 		public void RefreshUI(WizardForm wizardForm)
@@ -111,19 +113,19 @@ namespace DataTransform
 		private bool InitSourceFile(SourceInfo srcInfo)
 		{
 			bool bError = false;
-			m_nRecordCount = 0;
+			uint uiRecordCount = 0;
 
 			bool areEqual = ((m_csvSource.DataSrcInfo is not null) && m_csvSource.DataSrcInfo.Equals(srcInfo));
 			if (!areEqual)
 			{
 				try
 				{
-					if (m_csvSource.TestConnection(srcInfo))
+					if (m_csvSource.Initialize(srcInfo))
 					{
 						m_csvSource.DataSrcInfo = srcInfo;
 
 						Trace.WriteLine("Connection test successful.");
-						m_nRecordCount = m_csvSource.GetRecordCount();
+						uiRecordCount = m_csvSource.RecordCount;
 					}
 					else
 					{
@@ -140,10 +142,10 @@ namespace DataTransform
 
 				if (!bError)
 				{
-					txtRcdCount.Text = m_nRecordCount.ToString("N0");
+					txtRcdCount.Text = uiRecordCount.ToString("N0");
 
 					#if DEBUG
-						Trace.WriteLine($"Total # of records for file {m_csvSource.DataSrcInfo.FilePath}: {m_nRecordCount:n0}");
+						Trace.WriteLine($"Total # of records for file {m_csvSource.DataSrcInfo.FilePath}: {uiRecordCount:n0}");
 					#endif
 				}
 			}
@@ -171,13 +173,12 @@ namespace DataTransform
 			get { return m_csvSource.DataSrcInfo?.FilePath ?? string.Empty; }
 		}
 
-		public int RecordCount 
+		public uint RecordCount 
 		{ 
-			get { return m_nRecordCount; }
+			get { return m_csvSource.RecordCount; }
 		}
 
 		private CSVDTDataSource m_csvSource = new CSVDTDataSource();
 		private List<string> m_lstColumnNames = new List<string>();
-		private int m_nRecordCount = 0;
 	}
 }
