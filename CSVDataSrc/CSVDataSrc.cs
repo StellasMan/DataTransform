@@ -21,6 +21,7 @@ namespace CSVDataSrc
 			if (!m_bInitialized || (m_srcInfo is null) || (m_srcInfo != srcInfo))
 			{
 				bRetVal = false;
+				m_bInitialized = false;
 				m_lstColumnNames.Clear();
 				try
 				{
@@ -120,8 +121,13 @@ namespace CSVDataSrc
 					{
 						//var records = new List<string>();
 						Dictionary<string, string> dctDataCols = new Dictionary<string, string>();
-						csv.Read();
-						csv.ReadHeader();
+
+						if (m_srcInfo.Options.HasFlag(DS_OPTIONS.DS_OPT_HAS_HEADER))
+						{
+							csv.Read();
+							csv.ReadHeader();
+						}
+
 						while (csv.Read())
 						{
 							dctDataCols.Clear();

@@ -94,6 +94,8 @@ namespace DataTransform
 			{
 				// Get the path of the selected file
 				string filePath = openCSVFileDlg.FileName;
+				txtCSVFileName.Text = filePath;
+
 				DS_OPTIONS dsOptions = DS_OPTIONS.DS_OPT_NONE;
 				if (chkHasHeader.Checked == true)
 				{
