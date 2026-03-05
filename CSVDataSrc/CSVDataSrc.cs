@@ -76,40 +76,6 @@ namespace CSVDataSrc
 			return bRetVal;
 		}
 
-		private uint GetRecordCount()
-		{
-			if (!m_bInitialized)
-			{
-				uint uiRecordCount = 0;
-
-				try
-				{
-					// Use a 'using' statement to ensure the StreamReader is properly closed
-					using (StreamReader sr = new StreamReader(m_srcInfo.FilePath))
-					{
-						string? line;
-						// Read the file line by line until the end (ReadLine returns null)
-						while ((line = sr.ReadLine()) != null)
-						{
-							uiRecordCount++;
-						}
-
-						m_bInitialized = true; // Set the flag to indicate that we've initialized the record count
-						bool bHasHeader = m_srcInfo.Options.HasFlag(DS_OPTIONS.DS_OPT_HAS_HEADER);
-						m_uiRecordCount = (bHasHeader) ? Math.Max(0, (uiRecordCount - 1)) : uiRecordCount;
-					}
-				}
-				catch (Exception ex)
-				{
-					Trace.WriteLine($"The file could not be read:");
-					Trace.WriteLine(ex.Message);
-					m_uiRecordCount = 0; // Set record count to 0 if there's an error reading the file
-				}
-			}
-
-			return m_uiRecordCount;
-		}
-
 		public bool EnumerateRecords(Dictionary<string, string> dctFieldMapping, DTSrcRecordDelegate dctDelegate)
 		{
 			bool bRetVal = true;
@@ -207,6 +173,39 @@ namespace CSVDataSrc
 
 		// ****** End of IDTDataSource-specific methods *****
 
+		private uint GetRecordCount()
+		{
+			if (!m_bInitialized)
+			{
+				uint uiRecordCount = 0;
+
+				try
+				{
+					// Use a 'using' statement to ensure the StreamReader is properly closed
+					using (StreamReader sr = new StreamReader(m_srcInfo.FilePath))
+					{
+						string? line;
+						// Read the file line by line until the end (ReadLine returns null)
+						while ((line = sr.ReadLine()) != null)
+						{
+							uiRecordCount++;
+						}
+
+						m_bInitialized = true; // Set the flag to indicate that we've initialized the record count
+						bool bHasHeader = m_srcInfo.Options.HasFlag(DS_OPTIONS.DS_OPT_HAS_HEADER);
+						m_uiRecordCount = (bHasHeader) ? Math.Max(0, (uiRecordCount - 1)) : uiRecordCount;
+					}
+				}
+				catch (Exception ex)
+				{
+					Trace.WriteLine($"The file could not be read:");
+					Trace.WriteLine(ex.Message);
+					m_uiRecordCount = 0; // Set record count to 0 if there's an error reading the file
+				}
+			}
+
+			return m_uiRecordCount;
+		}
 
 		private List<string> m_lstColumnNames = new List<string>();
 		private SourceInfo? m_srcInfo = null;
