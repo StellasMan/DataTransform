@@ -3,6 +3,9 @@ using DTInterfaces;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 using CsvHelper;
+using CsvHelper.Configuration;
+using System.Globalization;
+using System.Reflection.PortableExecutable;
 
 namespace CSVDataSrc
 {
@@ -14,6 +17,8 @@ namespace CSVDataSrc
 		}
 
 		// ****** IDataSource-specific methods *****
+
+
 
 		public bool Initialize(SourceInfo srcInfo)
 		{
@@ -27,7 +32,12 @@ namespace CSVDataSrc
 				{
 					using (var reader = new StreamReader(srcInfo.FilePath))
 					{
-						using (var csv = new CsvReader(reader, System.Globalization.CultureInfo.InvariantCulture))
+
+						var csvConfig = new CsvConfiguration(CultureInfo.InvariantCulture);
+						if (!srcInfo.Options.HasFlag(DS_OPTIONS.DS_OPT_COMMA_DELIMITED))
+							csvConfig.Delimiter = "\t";
+
+						using (var csv = new CsvReader(reader, csvConfig))
 						{
 							if (csv.Read())
 							{
@@ -83,7 +93,12 @@ namespace CSVDataSrc
 			{
 				using (var reader = new StreamReader(m_srcInfo.FilePath))
 				{
-					using (var csv = new CsvReader(reader, System.Globalization.CultureInfo.InvariantCulture))
+
+					var csvConfig = new CsvConfiguration(CultureInfo.InvariantCulture);
+					if (!m_srcInfo.Options.HasFlag(DS_OPTIONS.DS_OPT_COMMA_DELIMITED))
+						csvConfig.Delimiter = "\t";
+
+					using (var csv = new CsvReader(reader, csvConfig))
 					{
 						//var records = new List<string>();
 						Dictionary<string, string> dctDataCols = new Dictionary<string, string>();
