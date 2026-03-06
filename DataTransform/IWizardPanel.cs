@@ -34,6 +34,7 @@ namespace DataTransform
 	{
 		IDTDataTarget? GetDataTarget();
 		string TargetTable { get; }
+		Object? ConnectInfo { get; }
 	}
 
 	internal interface IWizardPanel

@@ -53,6 +53,7 @@
 			txtCSVFileName.Name = "txtCSVFileName";
 			txtCSVFileName.Size = new Size(477, 23);
 			txtCSVFileName.TabIndex = 1;
+			txtCSVFileName.Leave += OnCSVFileNameLeave;
 			// 
 			// btnFindFile
 			// 
@@ -95,6 +96,7 @@
 			chkHasHeader.TabIndex = 5;
 			chkHasHeader.Text = "&Has Header";
 			chkHasHeader.UseVisualStyleBackColor = true;
+			chkHasHeader.CheckedChanged += OnHasHeaderClicked;
 			// 
 			// label2
 			// 

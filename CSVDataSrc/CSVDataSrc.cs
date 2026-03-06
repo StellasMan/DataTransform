@@ -94,6 +94,7 @@ namespace CSVDataSrc
 							csv.ReadHeader();
 						}
 
+						bool bContinue = true;
 						while (csv.Read())
 						{
 							dctDataCols.Clear();
@@ -109,7 +110,7 @@ namespace CSVDataSrc
 							{
 								string csError = $"Warning: Number of columns in the record ({aszColValues.Length}) does not match the number of column names ({m_lstColumnNames.Count}).";
 								Trace.WriteLine(csError);
-								dctDelegate(dctDataCols, true); // Pass an empty dictionary and indicate an error
+								bContinue = dctDelegate(dctDataCols, true); // Pass an empty dictionary and indicate an error
 							}
 							else
 							{
@@ -122,7 +123,7 @@ namespace CSVDataSrc
 									}
 								}
 
-								dctDelegate(dctDataCols, false);
+								bContinue = dctDelegate(dctDataCols, false);
 							}
 						}
 					}
@@ -177,7 +178,7 @@ namespace CSVDataSrc
 		{
 			if (!m_bInitialized)
 			{
-				uint uiRecordCount = 0;
+				m_uiRecordCount = 0;
 
 				try
 				{
@@ -188,12 +189,10 @@ namespace CSVDataSrc
 						// Read the file line by line until the end (ReadLine returns null)
 						while ((line = sr.ReadLine()) != null)
 						{
-							uiRecordCount++;
+							m_uiRecordCount++;
 						}
 
 						m_bInitialized = true; // Set the flag to indicate that we've initialized the record count
-						bool bHasHeader = m_srcInfo.Options.HasFlag(DS_OPTIONS.DS_OPT_HAS_HEADER);
-						m_uiRecordCount = (bHasHeader) ? Math.Max(0, (uiRecordCount - 1)) : uiRecordCount;
 					}
 				}
 				catch (Exception ex)

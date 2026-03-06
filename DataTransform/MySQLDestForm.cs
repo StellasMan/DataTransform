@@ -83,15 +83,23 @@ namespace DataTransform
 			string password = txtPassword.Text;
 
 			DBConnectInfo connectInfo = new DBConnectInfo(server, database, userID, password);
-			if (m_mySqlTarget.Connect(connectInfo))
+			try
 			{
-				List<string> lstTableNames = m_mySqlTarget.TableNames;
-				foreach (string table in lstTableNames)
+				if (m_mySqlTarget.Open(connectInfo))
 				{
-					cmbTargetTable.Items.Add(table);
-				}
+					m_connectInfo = connectInfo;
+					List<string> lstTableNames = m_mySqlTarget.TableNames;
+					foreach (string table in lstTableNames)
+					{
+						cmbTargetTable.Items.Add(table);
+					}
 
-				cmbTargetTable.SelectedIndex = (lstTableNames.Count > 0) ? 0 : -1;
+					cmbTargetTable.SelectedIndex = (lstTableNames.Count > 0) ? 0 : -1;
+				}
+			}
+			finally
+			{
+				m_mySqlTarget.Close();
 			}
 		}
 
@@ -123,19 +131,15 @@ namespace DataTransform
 			get { return m_csTableName; }
 		}
 
-		public string Server
+		public Object ConnectInfo
 		{
-			get { return string.Empty; }
-		}
-
-		string Database
-		{
-			get { return string.Empty; }
+			get { return m_connectInfo ?? new DBConnectInfo(); }
 		}
 
 		MySQLDTDataTarget m_mySqlTarget = new MySQLDTDataTarget();
 
 		public string m_csTableName = string.Empty;
 		public Dictionary<string, Object> m_mapColToFieldInfo = new Dictionary<string, Object>();
+		private DBConnectInfo? m_connectInfo;
 	}
 }

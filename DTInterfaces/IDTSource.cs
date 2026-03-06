@@ -95,7 +95,7 @@
 		// ************** End of IEquatable<T> implementation **************
 	}
 
-	public delegate void DTSrcRecordDelegate(Dictionary<string, string> dctDataCols, bool bError);
+	public delegate bool DTSrcRecordDelegate(Dictionary<string, string> dctDataCols, bool bError);
 
 	public interface IDTDataSource
 	{

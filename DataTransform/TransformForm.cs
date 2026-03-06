@@ -1,4 +1,5 @@
 ﻿using DTInterfaces;
+using MySQLDataTarget;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -127,29 +128,37 @@ namespace DataTransform
 				txtRcdsImported.Text = $"{nRecordsWritten:n0}";
 				txtErrors.Text = $"{nRecordsFailed:n0}";
 			}
-			Debug.WriteLine($"Progress: {nPctComplete}% - Imported: {nRecordsWritten} - Errors: {nRecordsFailed}");
+			Trace.WriteLine($"Progress: {nPctComplete}% - Imported: {nRecordsWritten} - Errors: {nRecordsFailed}");
 		}
 
-		private async void OnStart(object sender, EventArgs e)
+		private async void OnStartImport(object sender, EventArgs e)
 		{
 			bool bClearTable = chkClearTable.Checked;
 			bool bOK = true;
 
 			WizardForm wizardForm = this.Parent.Parent as WizardForm;
 
+			// public (string csServer, string csDatabase, string csTable) GetTargetInfo()
+			var targetInfo = wizardForm.GetTargetInfo();
+			string csTable = targetInfo.Item3;
+
+			IDTDataTarget idtDataTarget = wizardForm.GetDataTarget();
+			DBConnectInfo? dbConnectInfo = wizardForm.GetConnectInfo();
+
 			if (bClearTable)
 			{
-				uint uiRecordCount = wizardForm.GetRecordCount();
+				Object objConnectInfo = dbConnectInfo as Object;
+				uint uiRecordCount = idtDataTarget.GetRecordCount(objConnectInfo, csTable);
 				if (uiRecordCount > 0)
 				{
-					// public (string csServer, string csDatabase, string csTable) GetTargetInfo()
-					var targetInfo = wizardForm.GetTargetInfo();
-					string csTable = targetInfo.Item3;
-
 					DialogResult result = MessageBox.Show($"Table {csTable} currently has {uiRecordCount} records.\nAre you sure you want to clear this table before importing?", "Confirm Clear Table", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
 					if (result != DialogResult.Yes)
 					{
 						bOK = false;
+					}
+					else
+					{
+						idtDataTarget.ClearTable(objConnectInfo, csTable);
 					}
 				}
 			}
@@ -164,9 +173,9 @@ namespace DataTransform
 				CancellationToken token = m_cTknSource.Token;
 
 				IDTDataSource idtDataSource = wizardForm.GetDataSource();
-				IDTDataTarget idtDataTarget = wizardForm.GetDataTarget();
+
 				Dictionary<string, string> dctFieldMapping = wizardForm.GetFieldMapping();
-				DataTransfer dtaXFer = new DataTransfer(idtDataSource, idtDataTarget, dctFieldMapping, token, ProgressUpdate);
+				DataTransfer dtaXFer = new DataTransfer(idtDataSource, idtDataTarget, dbConnectInfo, csTable, dctFieldMapping, token, ProgressUpdate);
 
 				// Start the import, asynchronously so that the UI remains responsive.
 				// Store the Task object so we can check its status later.
@@ -176,7 +185,7 @@ namespace DataTransform
 			}
 		}
 
-		private void OnCancel(object sender, EventArgs e)
+		private void OnCancelImport(object sender, EventArgs e)
 		{
 			// Request cancellation from the main thread
 			m_cTknSource.Cancel();

@@ -19,11 +19,16 @@ namespace DTInterfaces
 		List<string> TableNames { get; }
 		string Server { get; }
 		string Database { get;  }
+		string TargetTable { get; set; }
 
 		bool TestConnection(Object objConnectInfo);
-		bool Connect(Object objConnectInfo);
-		bool Close();
+		bool Open(Object objConnectInfo);
 		bool WriteRecord(Dictionary<string, string> dctDataCols);
+		bool Close();
+
+		uint GetRecordCount(Object objConnectInfo, string tableName);
+		void ClearTable(Object objConnectInfo, string tableName);
+
 		Dictionary<string, Object> GetTableColumnInfo(string tableName);
 	}
 }

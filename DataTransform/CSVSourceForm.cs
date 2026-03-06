@@ -15,6 +15,7 @@ using System.Diagnostics;
 using CSVDataSrc;
 using DTInterfaces;
 using MySql.Data.MySqlClient;
+using static System.Windows.Forms.Design.AxImporter;
 
 namespace DataTransform
 {
@@ -30,9 +31,11 @@ namespace DataTransform
 			SourceInfo srcInfo = new SourceInfo(string.Empty, DS_OPTIONS.DS_OPT_HAS_HEADER | DS_OPTIONS.DS_OPT_COMMA_DELIMITED);
 
 			#if DEBUG
-				chkHasHeader.Checked = false;
-				string csCSVFileName = "D:\\Development\\Projects\\DataTransform\\Data\\CrossRef.csv";
-				srcInfo.Options = DS_OPTIONS.DS_OPT_COMMA_DELIMITED;
+				//chkHasHeader.Checked = false;
+				string csCSVFileName = "D:\\Development\\Projects\\DataTransform\\Data\\CrossRefShort.csv";
+				srcInfo.Options = DS_OPTIONS.DS_OPT_NONE;
+				srcInfo.Options |= chkHasHeader.Checked ? DS_OPTIONS.DS_OPT_HAS_HEADER : 0;
+				srcInfo.Options |= radCommaDelimited.Checked ? DS_OPTIONS.DS_OPT_COMMA_DELIMITED : 0;
 				txtCSVFileName.Text = csCSVFileName;
 				srcInfo.FilePath = csCSVFileName;
 				InitSourceFile(srcInfo);
@@ -69,6 +72,46 @@ namespace DataTransform
 		public void RefreshUI(WizardForm wizardForm)
 		{
 			Trace.WriteLine("SourceForm: RefreshUI called");
+		}
+
+		private void OnHasHeaderClicked(object sender, EventArgs e)
+		{
+			CheckBox chkHasHeader = sender as CheckBox;
+			if (m_csvSource.DataSrcInfo is not null)
+			{
+				if (chkHasHeader.Checked)
+				{
+					m_csvSource.DataSrcInfo.Options |= DS_OPTIONS.DS_OPT_HAS_HEADER;
+				}
+				else
+				{
+					m_csvSource.DataSrcInfo.Options &= ~DS_OPTIONS.DS_OPT_HAS_HEADER;
+				}
+
+				uint uiRcdCount = RecordCount;
+				txtRcdCount.Text = uiRcdCount.ToString("N0");
+			}
+		}
+
+		private void OnCSVFileNameLeave(object sender, EventArgs e)
+		{
+			string csFileName = txtCSVFileName.Text.Trim();
+			if (m_csvSource.DataSrcInfo is not null)
+			{
+				bool areEqual = m_csvSource.DataSrcInfo.FilePath.Equals(csFileName, StringComparison.OrdinalIgnoreCase);
+				if (!areEqual)
+				{
+					InitSourceFile(new SourceInfo(csFileName, m_csvSource.DataSrcInfo.Options));
+				}
+			}
+			else
+			{
+				DS_OPTIONS dsOptions = DS_OPTIONS.DS_OPT_NONE;
+				dsOptions |= chkHasHeader.Checked ? DS_OPTIONS.DS_OPT_HAS_HEADER : DS_OPTIONS.DS_OPT_NONE;
+				dsOptions |= radCommaDelimited.Checked ? DS_OPTIONS.DS_OPT_COMMA_DELIMITED : DS_OPTIONS.DS_OPT_NONE;
+
+				InitSourceFile(new SourceInfo(csFileName, dsOptions));
+			}
 		}
 
 		private void OnFindFile(object sender, EventArgs e)
@@ -116,6 +159,7 @@ namespace DataTransform
 		{
 			bool bError = false;
 			uint uiRecordCount = 0;
+			bool bHasHeader = srcInfo.Options.HasFlag(DS_OPTIONS.DS_OPT_HAS_HEADER);
 
 			bool areEqual = ((m_csvSource.DataSrcInfo is not null) && m_csvSource.DataSrcInfo.Equals(srcInfo));
 			if (!areEqual)
@@ -127,7 +171,7 @@ namespace DataTransform
 						m_csvSource.DataSrcInfo = srcInfo;
 
 						Trace.WriteLine("Connection test successful.");
-						uiRecordCount = m_csvSource.RecordCount;
+						uiRecordCount = bHasHeader ? Math.Max(0, m_csvSource.RecordCount - 1) : m_csvSource.RecordCount;
 					}
 					else
 					{
@@ -170,14 +214,20 @@ namespace DataTransform
 			get { return true; }
 		}
 
-		public string SourceFile 
-		{ 
+		public string SourceFile
+		{
 			get { return m_csvSource.DataSrcInfo?.FilePath ?? string.Empty; }
 		}
 
-		public uint RecordCount 
-		{ 
-			get { return m_csvSource.RecordCount; }
+		public uint RecordCount
+		{
+			get 
+			{
+				// Get record count, allow for header row if present
+				bool bHasHeader = m_csvSource.DataSrcInfo?.Options.HasFlag(DS_OPTIONS.DS_OPT_HAS_HEADER) ?? false;
+				uint uiRecordCount = bHasHeader ? Math.Max(0, m_csvSource.RecordCount-1) : m_csvSource.RecordCount;
+				return uiRecordCount; 
+			}
 		}
 
 		private CSVDTDataSource m_csvSource = new CSVDTDataSource();

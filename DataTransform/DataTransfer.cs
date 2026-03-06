@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using DTInterfaces;
+using MySQLDataTarget;
 
 // Declare callback delegate
 public delegate void ProgressUpdateDelegate(int nPctComplete, int nRecordsWritten, int nRecordsFailed);
@@ -19,10 +20,13 @@ namespace DataTransform
 		private Dictionary<string, string>? m_dctFieldMapping = null;
 		private CancellationToken m_token;
 		private ProgressUpdateDelegate m_progressUpdateCallback;
+		private DBConnectInfo? m_dbConnectInfo;
+		private string m_csTable;
 
-		public DataTransfer(IDTDataSource? sourceData, IDTDataTarget? targetData, Dictionary<string, string>? dctFieldMapping, CancellationToken token, ProgressUpdateDelegate progressUpdateCallback)
+		public DataTransfer(IDTDataSource? sourceData, IDTDataTarget? targetData, DBConnectInfo dbConnectInfo, string csTable, Dictionary<string, string>? dctFieldMapping, CancellationToken token, ProgressUpdateDelegate progressUpdateCallback)
 		{
-			(m_idtDataSrc, m_idtDataTarget, m_dctFieldMapping, m_token, m_progressUpdateCallback) = (sourceData, targetData, dctFieldMapping, token, progressUpdateCallback);
+			(m_idtDataSrc,	m_idtDataTarget,	m_dbConnectInfo,	m_csTable,	m_dctFieldMapping,	m_token,	m_progressUpdateCallback) = 
+			(sourceData,	targetData,			dbConnectInfo,		csTable,	dctFieldMapping,	token,		progressUpdateCallback);
 		}
 
 		public void Execute()
@@ -33,45 +37,54 @@ namespace DataTransform
 
 			try
 			{
-				if ((m_idtDataSrc is not null) && (m_idtDataSrc.DataSrcInfo is not null) && (m_idtDataTarget is not null))
+				if (m_idtDataTarget.Open(m_dbConnectInfo))
 				{
-					m_idtDataSrc.EnumerateRecords(m_dctFieldMapping, (dctDataCols, bError) =>
+					m_idtDataTarget.TargetTable = m_csTable;
+					if ((m_idtDataSrc is not null) && (m_idtDataSrc.DataSrcInfo is not null) && (m_idtDataTarget is not null))
 					{
-						if (bError)
+						m_idtDataSrc.EnumerateRecords(m_dctFieldMapping, (dctDataCols, bError) =>
 						{
-							nErrors++;
-							Trace.WriteLine($"Error processing record: {string.Join(", ", dctDataCols.Select(kv => $"{kv.Key}={kv.Value}"))}");
-						}
-						else
-						{
-							// bool bWriteSuccess = m_idtDataTarget.WriteRecord(dctDataCols);
-							bool bWriteSuccess = true;
-							if (bWriteSuccess)
+							bool bContinue = !(m_token.IsCancellationRequested);
+							if (bContinue)
 							{
-								nWritten++;
-							}
-							else
-							{
-								nErrors++;
-								Trace.WriteLine($"Failed to write record: {string.Join(", ", dctDataCols.Select(kv => $"{kv.Key}={kv.Value}"))}");
-							}
-						}
+								if (bError)
+								{
+									nErrors++;
+									Trace.WriteLine($"Error processing record: {string.Join(", ", dctDataCols.Select(kv => $"{kv.Key}={kv.Value}"))}");
+								}
+								else
+								{
+									bool bWriteSuccess = m_idtDataTarget.WriteRecord(dctDataCols);
+									if (bWriteSuccess)
+									{
+										nWritten++;
+									}
+									else
+									{
+										nErrors++;
+										Trace.WriteLine($"Failed to write record: {string.Join(", ", dctDataCols.Select(kv => $"{kv.Key}={kv.Value}"))}");
+									}
+								}
 
-						// Invoke the callback once every 100 records
-						if ((nWritten + nErrors) % 100 == 0)
-						{
-							int nPctComplete = (int)Math.Round((double)(nWritten + nErrors) / uiTotalRecords * 100);
-							m_progressUpdateCallback(nPctComplete, nWritten, nErrors);
-						}
-					});
+								// Invoke the callback once every 100 records
+								if ((nWritten + nErrors) % 100 == 0)
+								{
+									int nPctComplete = (int)Math.Round((double)(nWritten + nErrors) / uiTotalRecords * 100);
+									m_progressUpdateCallback(nPctComplete, nWritten, nErrors);
+								}
+							}
 
-					// Final callback invocation to ensure we report 100% completion at the end
-					int nPctComplete = (int)Math.Round((double)(nWritten + nErrors) / uiTotalRecords * 100);
-					m_progressUpdateCallback(nPctComplete, nWritten, nErrors);
-				}
-				else
-				{
-					Debug.WriteLine("Data source information is not available.");
+							return bContinue;
+						});
+
+						// Final callback invocation to ensure we report 100% completion at the end
+						int nPctComplete = (int)Math.Round((double)(nWritten + nErrors) / uiTotalRecords * 100);
+						m_progressUpdateCallback(nPctComplete, nWritten, nErrors);
+					}
+					else
+					{
+						Trace.WriteLine("Data source information is not available.");
+					}
 				}
 			}
 			catch (System.IO.IOException ex)
@@ -83,29 +96,10 @@ namespace DataTransform
 			{
 				Trace.WriteLine($"An unexpected error occurred: {ex.Message}");
 			}
-			//finally
-			//{
-			//	if (bSrcOpen)
-			//	{
-			//		m_idtDataSrc.Close();
-			//		bSrcOpen = false;
-			//	}
-			//}
-
-			//int nTotalRecords = _sourceData.GetRecordCount();
-			//int nRecordsWritten = 0;
-			//int nRecordsFailed = 0;
-			//for (int i = 0; i < nTotalRecords; i++)
-			//{
-			//	var record = _sourceData.GetRecord(i);
-			//	bool success = _targetData.WriteRecord(record);
-			//	if (success)
-			//		nRecordsWritten++;
-			//	else
-			//		nRecordsFailed++;
-			//	int nPctComplete = (int)((double)(i + 1) / nTotalRecords * 100);
-			//	_progressUpdateCallback(nPctComplete, nRecordsWritten, nRecordsFailed);
-			//}
+			finally
+			{
+				m_idtDataTarget.Close();
+			}
 		}
 	}
 }

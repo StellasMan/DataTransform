@@ -163,7 +163,7 @@
 			btnStart.TabIndex = 12;
 			btnStart.Text = "&Start Import";
 			btnStart.UseVisualStyleBackColor = true;
-			btnStart.Click += OnStart;
+			btnStart.Click += OnStartImport;
 			// 
 			// btnCancel
 			// 
@@ -173,7 +173,7 @@
 			btnCancel.TabIndex = 13;
 			btnCancel.Text = "&Cancel Import";
 			btnCancel.UseVisualStyleBackColor = true;
-			btnCancel.Click += OnCancel;
+			btnCancel.Click += OnCancelImport;
 			// 
 			// TransformForm
 			// 

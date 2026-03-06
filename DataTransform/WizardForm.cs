@@ -1,5 +1,7 @@
 using DTInterfaces;
 using MySQLDataTarget;
+using MySqlX.XDevAPI.Relational;
+using Org.BouncyCastle.Tls;
 using System.Diagnostics;
 
 namespace DataTransform
@@ -116,6 +118,18 @@ namespace DataTransform
 
 			var retVal = (csServer,	csDatabase, csTable);
 			return retVal;
+		}
+
+		public DBConnectInfo? GetConnectInfo()
+		{
+			DBConnectInfo? dBConnectInfo = null;
+			IWizardPanelTarget idtPanelTarget = wizardPages[(int)FT_INDEX.FT_DEST] as IWizardPanelTarget;
+			if (idtPanelTarget != null)
+			{
+				dBConnectInfo = idtPanelTarget.ConnectInfo as DBConnectInfo;
+			}
+
+			return dBConnectInfo;
 		}
 
 		public IDTDataSource? GetDataSource()

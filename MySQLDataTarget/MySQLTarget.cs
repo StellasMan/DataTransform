@@ -2,6 +2,8 @@
 using MySql.Data.MySqlClient;
 using System.Diagnostics;
 using MySql.Data;
+using System.Text;
+using Org.BouncyCastle.Security;
 
 namespace MySQLDataTarget
 {
@@ -92,7 +94,7 @@ namespace MySQLDataTarget
 			set { if (value is not null) m_csTargetTable = value; }
 		}
 
-		public bool Connect(Object objConnectInfo)
+		public bool Open(Object objConnectInfo)
 		{
 			bool bRetVal = true;
 
@@ -104,12 +106,12 @@ namespace MySQLDataTarget
 				string connectionString = $"Server={dbConnectInfo.Server};User ID={dbConnectInfo.UserID};Password={dbConnectInfo.Password};Database={dbConnectInfo.Database}";
 
 				// Establish Connection
-				m_mySQLConnection = new MySqlConnection(connectionString);
-				m_mySQLConnection.Open();
-				if (m_mySQLConnection.State == System.Data.ConnectionState.Open)
+				MySqlConnection mySQLConnection = new MySqlConnection(connectionString);
+				mySQLConnection.Open();
+				if (mySQLConnection.State == System.Data.ConnectionState.Open)
 				{
+					m_mySQLConnection = mySQLConnection;
 					m_dbConnectInfo = dbConnectInfo;
-					Trace.WriteLine("Connected successfully!");
 				}
 				else
 				{
@@ -185,37 +187,104 @@ namespace MySQLDataTarget
 
 		public Dictionary<string, Object> GetTableColumnInfo(string tableName)
 		{
-			Dictionary<string, Object> dctColumnInfo = new Dictionary<string, Object>();
+			Dictionary<string, Object> dctColumnInfo = null;
 
 			try
 			{
-				if ((m_dbConnectInfo != null) && Connect(m_dbConnectInfo))
+				if ((m_dbConnectInfo != null) && Open(m_dbConnectInfo))
 				{
-					System.Diagnostics.Debug.Assert((m_mySQLConnection is not null) && (m_mySQLConnection.State == System.Data.ConnectionState.Open));
+					dctColumnInfo = new Dictionary<string, Object>();
+					GetTableColumnInfoInternal(tableName, dctColumnInfo);
+				}
+			}
+			catch (MySqlException ex)
+			{
+				Trace.WriteLine($"MySQL error: {ex.Message}");
+			}
+			catch (Exception ex)
+			{
+				Trace.WriteLine($"General error: {ex.Message}");
+			}
+			finally
+			{
+				Close();
+			}
 
-					string sqlCmd = $"DESCRIBE {tableName}";
+			return dctColumnInfo ?? new Dictionary<string, object>();
+		}
+
+		private void GetTableColumnInfoInternal(string csTableName, Dictionary<string, Object> dctColumnInfo)
+		{
+			System.Diagnostics.Debug.Assert((m_mySQLConnection is not null) && (m_mySQLConnection.State == System.Data.ConnectionState.Open));
+
+			string sqlCmd = $"DESCRIBE {csTableName}";
+			MySqlCommand cmd = new MySqlCommand(sqlCmd, m_mySQLConnection);
+
+			// Execute the query and get the results in a data reader
+			using (MySqlDataReader reader = cmd.ExecuteReader())
+			{
+				// Read rows one by one
+				while (reader.Read())
+				{
+					// Access data by column name or index
+					string fieldName = GetStringValue(reader, "Field");
+					string fieldType = GetStringValue(reader, "Type");
+					bool bNullAllowed = GetStringValue(reader, "Null").Equals("YES", StringComparison.OrdinalIgnoreCase) ? true : false;
+					string csKeyType = GetStringValue(reader, "Key");
+					KeyType keyType = (csKeyType.Equals("PRI", StringComparison.OrdinalIgnoreCase)) ? KeyType.PrimaryKey :
+										(csKeyType.Equals("UNI", StringComparison.OrdinalIgnoreCase)) ? KeyType.UniqueKey :
+										(csKeyType.Equals("MUL", StringComparison.OrdinalIgnoreCase)) ? KeyType.MultiKey : KeyType.None;
+
+					string fieldDefault = GetStringValue(reader, "Default");
+
+					MySQLFieldInfo mySqlFieldInfo = new MySQLFieldInfo(fieldName, fieldType, bNullAllowed, keyType, fieldDefault);
+					dctColumnInfo.Add(fieldName, mySqlFieldInfo as Object);
+				}
+			}
+		}
+
+		public bool WriteRecord(Dictionary<string, string> dctDataCols)
+		{
+			bool bRetVal = false;
+
+			// Prepare the insert statement
+			string csPreparedStmt = CreatePreparedStatement(dctDataCols);
+
+			// Do this once per table, since the column info won't change during the import process.
+			// This is needed to determine the data type of each column, so we can format the value
+			// correctly for MySQL (e.g. dates need to be formatted as YYYY-MM-DD).
+			if (m_dctColumnInfo is null)
+			{
+				m_dctColumnInfo = new Dictionary<string, Object>();
+				GetTableColumnInfoInternal(m_csTargetTable, m_dctColumnInfo);
+			}
+			
+			//#if DEBUG
+			//	Trace.WriteLine(csPreparedStmt);
+			//#endif
+
+			using (var command = new MySqlCommand(csPreparedStmt, m_mySQLConnection))
+			{
+				bRetVal = OutputRecord(csPreparedStmt, dctDataCols, command);
+			}
+
+			return bRetVal;
+		}
+
+		public uint GetRecordCount(Object objConnectInfo, string tableName)
+		{
+			uint uiCount = 0;
+			try
+			{
+				DBConnectInfo dbConnectInfo = objConnectInfo as DBConnectInfo ?? throw new ArgumentException("Invalid connection info object. Expected type: DBConnectInfo", nameof(objConnectInfo));
+				if ((dbConnectInfo != null) && Open(dbConnectInfo))
+				{
+					string sqlCmd = $"SELECT COUNT(*) FROM {dbConnectInfo.Database}.{tableName}";
 					MySqlCommand cmd = new MySqlCommand(sqlCmd, m_mySQLConnection);
-
-					// Execute the query and get the results in a data reader
-					using (MySqlDataReader reader = cmd.ExecuteReader())
+					Object objValue = cmd.ExecuteScalar();
+					if (!(objValue != null && uint.TryParse(objValue.ToString(), out uiCount)))
 					{
-						// Read rows one by one
-						while (reader.Read())
-						{
-							// Access data by column name or index
-							string fieldName = GetStringValue(reader, "Field");
-							string fieldType = GetStringValue(reader, "Type");
-							bool bNullAllowed = GetStringValue(reader, "Null").Equals("YES", StringComparison.OrdinalIgnoreCase) ? true : false;
-							string csKeyType = GetStringValue(reader, "Key");
-							KeyType keyType = (csKeyType.Equals("PRI", StringComparison.OrdinalIgnoreCase)) ? KeyType.PrimaryKey :
-												(csKeyType.Equals("UNI", StringComparison.OrdinalIgnoreCase)) ? KeyType.UniqueKey :
-												(csKeyType.Equals("MUL", StringComparison.OrdinalIgnoreCase)) ? KeyType.MultiKey : KeyType.None;
-
-							string fieldDefault = GetStringValue(reader, "Default");
-
-							MySQLFieldInfo mySqlFieldInfo = new MySQLFieldInfo(fieldName, fieldType, bNullAllowed, keyType, fieldDefault);
-							dctColumnInfo.Add(fieldName, mySqlFieldInfo as Object);
-						}
+						Trace.WriteLine($"Failed to get record count for table {tableName}. ExecuteScalar returned null or non-integer value.");
 					}
 				}
 			}
@@ -227,16 +296,205 @@ namespace MySQLDataTarget
 			{
 				Trace.WriteLine($"General error: {ex.Message}");
 			}
+			finally
+			{
+				Close();
+			}
 
-			return dctColumnInfo;
+			return uiCount;
 		}
 
-		public bool WriteRecord(Dictionary<string, string> dctDataCols)
+		public void ClearTable(Object objConnectInfo, string tableName)
 		{
-			throw new NotImplementedException();
+			try
+			{
+				DBConnectInfo dbConnectInfo = objConnectInfo as DBConnectInfo ?? throw new ArgumentException("Invalid connection info object. Expected type: DBConnectInfo", nameof(objConnectInfo));
+				if ((dbConnectInfo != null) && Open(dbConnectInfo))
+				{
+					string sqlCmd = $"TRUNCATE {dbConnectInfo.Database}.{tableName}";
+					MySqlCommand cmd = new MySqlCommand(sqlCmd, m_mySQLConnection);
+					cmd.ExecuteNonQuery();
+				}
+			}
+			catch (MySqlException ex)
+			{
+				Trace.WriteLine($"MySQL error: {ex.Message}");
+			}
+			catch (Exception ex)
+			{
+				Trace.WriteLine($"General error: {ex.Message}");
+			}
+			finally
+			{
+				Close();
+			}
 		}
 
 		// ************** MySQL-specific methods ****************
+		private string CreatePreparedStatement(Dictionary<string, string> dctDataCols)
+		{
+			StringBuilder sb = new StringBuilder($"INSERT INTO {m_csTargetTable} (");
+
+			foreach (KeyValuePair<string, string> kvPair in dctDataCols)
+			{
+				string csColumn = $"{kvPair.Key},";
+				sb.Append(csColumn);
+			}
+
+			sb.Remove(sb.Length - 1, 1);    // Remove trailing ','
+			sb.Append(") VALUES (");
+
+			foreach (KeyValuePair<string, string> kvPair in dctDataCols)
+			{
+				sb.Append($"@{kvPair.Key},");
+			}
+
+			sb.Remove(sb.Length - 1, 1);    // Remove trailing ','
+			sb.Append(")");
+
+			return sb.ToString();
+		}
+
+		// Process the line and insert into the database, using the prepared statement
+		private bool OutputRecord(string csLine, Dictionary<string, string> dctDataCols, MySqlCommand mySqlCmd)
+		{
+			bool bRetVal = false;
+
+			try
+			{
+				mySqlCmd.Parameters.Clear();    // Clear previous values
+				foreach (KeyValuePair<string, string> kvPair in dctDataCols)
+				{
+					string csDBColumn = kvPair.Key;
+					string csRawValue = kvPair.Value;
+					string csParamValue;
+					string csColName = $"@{csDBColumn}";
+					if (csRawValue.Length == 0)
+					{
+						//#if DEBUG
+						//	Trace.WriteLine($"Setting parameter {csColName} to value 'DBNull.Value'");
+						//#endif
+						mySqlCmd.Parameters.AddWithValue(csColName, DBNull.Value);
+					}
+					else
+					{
+						// Remove any extranneous spaces or double quotes
+						csRawValue = csRawValue.Trim();
+						csRawValue = csRawValue.Trim('"');
+						csParamValue = GetColumnValue(csRawValue, csDBColumn);
+
+						//#if DEBUG
+						//	Trace.WriteLine($"Setting parameter {csColName} to value {csParamValue}");
+						//#endif
+
+						mySqlCmd.Parameters.AddWithValue(csColName, csParamValue);
+					}
+				}
+
+				int nRows = mySqlCmd.ExecuteNonQuery();  // Should return 1, since we're inserting 1 row
+				bRetVal = (nRows == 1);
+			}
+			catch (Exception ex)
+			{
+				Trace.WriteLine(csLine);
+				Trace.WriteLine(ex.Message);
+				Trace.WriteLine(ex.StackTrace);
+			}
+
+			return bRetVal;
+		}
+
+		// Return a value that can be input into MySQL.
+		// A date is formatted as YYYY-MM-DD
+		// All other types are returned as-is.
+		private string GetColumnValue(string csValue, string csColumnName)
+		{
+			string csMySQL = csValue;
+
+			Object objColType;
+			if (m_dctColumnInfo.TryGetValue(csColumnName, out objColType))
+			{
+				MySQLFieldInfo mySqlColType = objColType as MySQLFieldInfo ?? throw new InvalidCastException($"Column info for column {csColumnName} cannot be cast to MySQLFieldInfo.");
+				string csSqlColType = mySqlColType.Type.ToLower();
+				int nParen = csSqlColType.IndexOf("(");
+				if (nParen > 0)
+				{
+					csSqlColType = csSqlColType.Substring(0, nParen);
+				}
+
+				if (IsDateType(csSqlColType))
+				{
+					csMySQL = GetDateType(csValue, csSqlColType);
+				}
+			}
+			else
+			{
+				Debug.Assert(false, $"Cannot find column info for column {csColumnName}");
+			}
+
+			return csMySQL;
+		}
+
+		bool IsStringType(string szColumnType)
+		{
+			string szType = szColumnType.ToLower();
+			string[] aszStringTypes =
+			{
+				"char",
+				"varchar",
+				"binary",
+				"varbinary",
+				"tinytext",
+				"text",
+				"mediumtext",
+				"longtext"
+			};
+
+			return aszStringTypes.Contains(szType);
+		}
+
+		private bool IsDateType(string csColumnType)
+		{
+			string csType = csColumnType.ToLower();
+			string[] acsDateTypes =
+			{
+				"date",
+				"time",
+				"year",
+				"datetime"
+			};
+			return acsDateTypes.Contains(csType);
+		}
+
+		private string GetDateType(string csValue, string csColumnType)
+		{
+			string csDateValue = csValue;
+			DateTime dtDateTime;
+			if (DateTime.TryParse(csValue, out dtDateTime))
+			{
+				switch (csColumnType)
+				{
+					case "date":
+						csDateValue = dtDateTime.ToString("yyyy-MM-dd");
+						break;
+
+					case "time":
+						csDateValue = dtDateTime.ToString("HH-mm-ss");
+						break;
+
+					case "year":
+						csDateValue = dtDateTime.ToString("yyyy");
+						break;
+
+					case "datetime":
+						csDateValue = dtDateTime.ToString("yyyy-MM-dd HH:mm:ss");
+						break;
+				}
+				;
+			}
+
+			return csDateValue;
+		}
 
 		private List<string> GetTableNames()
 		{
@@ -289,6 +547,7 @@ namespace MySQLDataTarget
 
 		DBConnectInfo? m_dbConnectInfo;
 		MySqlConnection? m_mySQLConnection;
+		private Dictionary<string, Object>? m_dctColumnInfo = null;
 		private string m_csTargetTable = string.Empty;
 	}
 }
