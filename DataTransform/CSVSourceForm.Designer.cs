@@ -111,6 +111,7 @@
 			// 
 			txtRcdCount.Location = new Point(727, 92);
 			txtRcdCount.Name = "txtRcdCount";
+			txtRcdCount.ReadOnly = true;
 			txtRcdCount.Size = new Size(62, 23);
 			txtRcdCount.TabIndex = 7;
 			txtRcdCount.Text = "0";
